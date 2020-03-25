@@ -1,0 +1,176 @@
+- debug: msg="String telemetry dial-in and dial-out tests..."
+
+
+- set_fact:
+    path_tmp_telemetry: /tmp/tmp_telemetry
+    path_ptf_run_dir: /tmp/test_telemetry
+    gitUrl_telemetry: https://github.com/Azure/sonic-telemetry.git
+    version_telemetry: aaa9188fda4b6f36dd5da00cdb240933fedae5ce
+    gitUrl_mgmt_framework: https://github.com/Azure/sonic-mgmt-framework.git
+    version_mgmt_framework: a4f1650d505c14d94872bd216f218e7c752de05c
+    go_fileName: go1.14.linux-amd64.tar.gz
+
+- name: Create tmp folder for telemetry
+  delegate_to: localhost
+  file: path="{{ path_tmp_telemetry }}" state=directory
+
+
+ #****************************************#
+ #           Prepareing                   #
+ #****************************************#
+- debug: msg="Prepareing the test code folder..."
+- block:
+  - name: pip pyangbind
+    delegate_to: localhost
+    become: true
+    pip:
+      name: pyangbind==0.6.0
+  - name: install pip3
+    delegate_to: localhost
+    become: true
+    apt:
+      name: python3-pip
+  - name: pip jinja2
+    delegate_to: localhost
+    become: true
+    pip:
+      name: jinja2>=2.10
+      executable: pip3
+
+  - name: Create sonic related project directory
+    delegate_to: localhost
+    file:
+      path: "{{ item }}"
+      state: directory
+    with_items:
+      - "{{ path_tmp_telemetry }}/sonic-telemetry"
+      - "{{ path_tmp_telemetry }}/sonic-mgmt-framework"
+
+  - name: Clone sonic related project
+    delegate_to: localhost
+    git:
+      repo: "{{ item.url }}"
+      dest: "{{ item.path }}"
+      version: "{{ item.ver }}"
+    with_items:
+      - { url: "{{ gitUrl_mgmt_framework }}", ver: "{{version_mgmt_framework}}", path: "{{ path_tmp_telemetry }}/sonic-mgmt-framework" }
+      - { url: "{{ gitUrl_telemetry }}", ver: "{{version_telemetry}}", path: "{{ path_tmp_telemetry }}/sonic-telemetry" }
+
+  - name: Download Go from https://dl.google.com/go/{{ go_fileName }}
+    delegate_to: localhost
+    get_url:
+      url: https://dl.google.com/go/{{ go_fileName }}
+      dest: "{{ path_tmp_telemetry }}/{{ go_fileName }}"
+  - name: Unarchive Go
+    delegate_to: localhost
+    become: true
+    unarchive:
+      src: "{{ path_tmp_telemetry }}/{{ go_fileName }}"
+      dest: /usr/local/
+      remote_src: yes
+
+  - name: Make cvl/schema in mgmt-framework
+    delegate_to: localhost
+    make:
+      chdir: "{{ path_tmp_telemetry }}/sonic-mgmt-framework/src/cvl/schema"
+    register: make_schema_output
+  - debug:
+      var: make_schema_output.stdout_lines
+
+  - name: Make mgmt-deps in telemetry (it may take long time.)
+    delegate_to: localhost
+    make:
+      chdir: "{{ path_tmp_telemetry }}/sonic-telemetry"
+      target: mgmt-deps
+    register: make_mgmtdeps_output
+  - debug:
+      var: make_mgmtdeps_output.stdout_lines
+
+  - name: Copy test file to telemetry folder
+    delegate_to: localhost
+    copy:
+      src: roles/test/files/telemetry/telemetry_test.go
+      dest: "{{ path_tmp_telemetry }}/sonic-telemetry"
+      remote_src: yes
+  - name: Compress telemetry code
+    delegate_to: localhost
+    archive:
+      path: "{{ path_tmp_telemetry }}/sonic-telemetry"
+      dest: "{{ path_tmp_telemetry }}/sonic-telemetry.tgz"
+
+  - name: Create a directory for running telemetry test ({{ path_ptf_run_dir }})
+    delegate_to: "{{ ptf_host }}"
+    file:
+      path: "{{ path_ptf_run_dir }}"
+      state: directory
+  - name: Unarchive telemetry.tgz
+    delegate_to: "{{ ptf_host }}"
+    unarchive:
+      src: "{{ path_tmp_telemetry }}/sonic-telemetry.tgz"
+      dest: "{{ path_ptf_run_dir }}"
+
+  always:
+  - name: Clean up tmp folder of telemetry
+    delegate_to: localhost
+    become: true
+    file:
+      state: absent
+      path: "{{ path_tmp_telemetry }}"
+
+ #****************************************#
+ #           Enable insecure mode         #
+ #****************************************#
+- debug: msg="Enable insecure mode in SONiC..."
+- name: hdel telemetry client_auth setting
+  shell: redis-cli -n 4 hdel "TELEMETRY|gnmi" client_auth
+- name: restart telemetry service
+  shell: /usr/bin/telemetry.sh stop && /usr/bin/telemetry.sh start
+  register: redis_cli_output
+- debug: var=redis_cli_output.stdout_lines
+
+
+ #****************************************#
+ #           Run test                     #
+ #****************************************#
+- debug: msg="Run telemetry test..."
+
+- set_fact:
+    dut_ip: "{{ ansible_default_ipv4.address }}"
+    ptf_ip: "{{ testbed_facts.ptf_ip }}"
+- debug: var=ptf_ip
+- debug: var=dut_ip
+- name: Get telemetry port
+  shell: redis-cli -n 4 --raw hget "TELEMETRY|gnmi" port
+  register: telemetry_port_output
+- set_fact:
+    telemetry_port: "{{ telemetry_port_output.stdout_lines | first }}"
+
+- block:
+  - name: mkdir for /var/run/redis/sonic-db/database_config.json
+    delegate_to: "{{ ptf_host }}"
+    become: yes
+    file:
+      path: /var/run/redis/sonic-db/
+      state: directory
+  - name: copy file for /var/run/redis/sonic-db/database_config.json
+    delegate_to: "{{ ptf_host }}"
+    become: yes
+    copy:
+      src: "{{ path_ptf_run_dir }}/sonic-telemetry/testdata/database_config.json"
+      dest: /var/run/redis/sonic-db/database_config.json
+      remote_src: yes
+  - name: Run telemetry test
+    delegate_to: "{{ ptf_host }}"
+    shell: CVL_SCHEMA_PATH={{ path_ptf_run_dir }}/sonic-telemetry/cvl/schema/ /usr/local/go/bin/go test -mod=vendor -v -telemetryIP={{ dut_ip }} -telemetryPort={{ telemetry_port }} -dialoutIP={{ ptf_ip }}
+    args:
+      chdir: "{{ path_ptf_run_dir }}/sonic-telemetry/"
+    register: telemetry_test_output
+  - debug: var=telemetry_test_output
+
+  always:
+  - name: Clean up running direcotory
+    delegate_to: "{{ ptf_host }}"
+    file:
+      state: absent
+      path: "{{ path_ptf_run_dir }}"
+    become: true

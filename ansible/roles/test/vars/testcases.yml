@@ -352,3 +352,7 @@ testcases:
     read_mac:
       filename: read_mac_metadata.yml
       topologies: [t0, t1, t1-lag]
+
+    telemetry:
+      filename: telemetry.yml
+      topologies: [ptf32, ptf64]
