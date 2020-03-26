@@ -49,21 +49,12 @@ var ethernetWildcardByte []uint8
 var ethernetWildcardPfc7Byte []uint8
 var queueOfEthernet4Byte []uint8
 
-// var sshSession *ssh.Session
-
 var targetIP = flag.String("telemetryIP", "", "the IP of target")
 var targetPort = flag.String("telemetryPort", "", "the port of target")
 var dialoutIP = flag.String("dialoutIP", "", "the IP of dialout client")
 
-// var targetIP = flag.String("targetIP", "", "the IP of target")
-
 func TestMain(m *testing.M) {
-	// cmd := exec.Command("export CVL_SCHEMA_PATH=/mnt/d/Code/sonic_buildimage_src/src/sonic-telemetry/debian/sonic-telemetry/usr/sbin/schema")
-	// if _, err := cmd.Output(); err != nil {
-	// 	fmt.Println(err)
-	// 	os.Exit(1)
-	// }
-	// os.Setenv("CVL_SCHEMA_PATH", "/mnt/d/Code/sonic_buildimage_src/src/sonic-telemetry/debian/sonic-telemetry/usr/sbin/schema")
+
 	flag.Parse()
 	if *targetIP == "" || *targetPort == "" || *dialoutIP == "" {
 		flag.Usage()
@@ -91,10 +82,6 @@ func TestMain(m *testing.M) {
 	dialoutAddr1 = fmt.Sprintf("%s:%d", *dialoutIP, 8080)
 	dialoutAddr2 = fmt.Sprintf("%s:%d", *dialoutIP, 8081)
 
-	// exe_cmd(nil, "/usr/bin/telemetry.sh stop")
-	// exe_cmd(nil, "/usr/bin/telemetry.sh start")
-
-	fmt.Println("TestMain")
 	os.Exit(m.Run())
 }
 
@@ -185,7 +172,6 @@ func sshHset(t *testing.T, session *ssh.Session, cmd string) string {
 }
 
 func sshRedisCli(t *testing.T, session *ssh.Session, cmd string) string {
-	// t.Log(cmd)
 	out, err := session.Output(cmd)
 	if err != nil {
 		t.Fatalf("Operate to Redis by SSH failed: %v", err)
@@ -254,49 +240,12 @@ func getAliasNameMap(t *testing.T) map[string]string {
 	}
 	splited := strings.Split(strings.Trim(string(out), "\n"), ",")
 
-	// cmd = ""
-	// for _, item := range splited {
-	// 	tmpCmd := fmt.Sprintf("redis-cli -n 4 --csv hget %s %s && ", item, "alias")
-	// 	cmd += tmpCmd
-	// }
-	// fmt.Println(cmd)
-	// cmd = ""
-	// for _, item := range splited {
-	// 	tmpCmd := fmt.Sprintf("redis-cli -n 4 hget %s %s && ", item, "alias")
-	// 	cmd += tmpCmd
-	// }
-	// fmt.Println(cmd)
-	// cmd = "( "
-	// for _, item := range splited {
-	// 	tmpCmd := fmt.Sprintf("redis-cli -n 4 --csv hget %s %s ; ", item, "alias")
-	// 	cmd += tmpCmd
-	// }
-	// fmt.Println(cmd)
-	// cmd = "rm result.log && "
-	// for _, item := range splited {
-	// 	tmpCmd := fmt.Sprintf("redis-cli -n 4 --csv hget %s %s >> result.log & ", item, "alias")
-	// 	cmd += tmpCmd
-	// }
-	// cmd = cmd + "wait"
-	// for range splited {
-	// 	cmd += " && fg"
-	// }
-	// fmt.Println(cmd)
-	// tmpSession := getSSHSession(t)
-	// out2, err := tmpSession.Output("pwd")
-	// if err != nil {
-	// 	t.Fatalf("Hgetall data from Redis by SSH failed: %v", err)
-	// }
-	// fmt.Println("pwd", string(out2))
-
 	for _, item := range splited {
 		//PORT|EthernetXX
 		portKey := strings.Trim(item, "\"")[5:]
 		tmpSession := getSSHSession(t)
 		tmpCmd := fmt.Sprintf("redis-cli -n 4 --csv hget %s %s", item, "alias")
-		// fmt.Printf("[Preparing compared data] Getting alias of %v now", portKey)
 		alias := sshHget(t, tmpSession, tmpCmd)
-		// fmt.Printf("\r[Preparing compared data] Getting alias of %v -> %v\n", portKey, alias)
 		aliasNameMap[alias] = portKey
 		tmpSession.Close()
 	}
@@ -306,23 +255,18 @@ func getAliasNameMap(t *testing.T) map[string]string {
 
 func getEthernetWildcard(t *testing.T, aliasNameMap, portNameMap map[string]string) []uint8 {
 	var result map[string]map[string]string = make(map[string]map[string]string)
-	// fmt.Println("aliasNameMap", len(aliasNameMap), aliasNameMap)
-	// fmt.Println("portNameMap", len(portNameMap), portNameMap)
 	for alias, portName := range aliasNameMap {
 		redisKey := "COUNTERS:" + portNameMap[portName]
 		cmd := fmt.Sprintf("redis-cli -n 2 --csv hgetall %s", redisKey)
 
 		sshSession := getSSHSession(t)
 
-		// fmt.Printf("[Preparing compared data] Getting data of %v now\n", alias)
 		tmpResult := sshHgetall(t, sshSession, cmd)
 
 		result[alias] = tmpResult
-		// fmt.Println(alias, cmd)
 		sshSession.Close()
 	}
 	jsonBytes, _ := json.Marshal(result)
-	// fmt.Println(result)
 	return jsonBytes
 }
 
@@ -353,7 +297,6 @@ func TestGnmiGet(t *testing.T) {
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))}
 
-	// targetAddr := "192.168.3.20:8080"
 	targetAddr := dialinAddr
 	conn, err := grpc.Dial(targetAddr, opts...)
 	if err != nil {
@@ -549,8 +492,6 @@ func TestCapabilities(t *testing.T) {
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))}
 
-	//targetAddr := "30.57.185.38:8080"
-	// targetAddr := "192.168.3.20:8080"
 	targetAddr := dialinAddr
 	conn, err := grpc.Dial(targetAddr, opts...)
 	if err != nil {
@@ -576,8 +517,6 @@ func TestCapabilities(t *testing.T) {
 // the return code and response value are expected.
 func runTestGet(t *testing.T, ctx context.Context, gClient pb.GNMIClient, pathTarget string,
 	textPbPath string, wantRetCode codes.Code, wantRespVal interface{}, valTest bool) {
-	//var retCodeOk bool
-	// Send request
 
 	var pbPath pb.Path
 	if err := proto.UnmarshalText(textPbPath, &pbPath); err != nil {
@@ -625,7 +564,6 @@ func runTestGet(t *testing.T, ctx context.Context, gClient pb.GNMIClient, pathTa
 				if err := json.Unmarshal(val.GetJsonIetfVal(), &gotVal); err != nil {
 					t.Fatalf("error in unmarshaling IETF JSON data to json container: %v", err)
 				}
-				// fmt.Println(string(val.GetJsonIetfVal()))
 				var wantJSONStruct interface{}
 				if err := json.Unmarshal(wantRespVal.([]byte), &wantJSONStruct); err != nil {
 					t.Fatalf("error in unmarshaling IETF JSON data to json container: %v", err)
@@ -671,7 +609,6 @@ func getAllQueueFromPortName(t *testing.T, port string) map[string]map[string]st
 
 		sshSession := getSSHSession(t)
 
-		// fmt.Printf("[Preparing compared data] Getting data of %v now\n", que)
 		tmpResult := sshHgetall(t, sshSession, cmd)
 
 		result[que] = tmpResult
@@ -707,7 +644,7 @@ func runTestSubscribe(t *testing.T) {
 	countersEthernet4JsonUpdate := tmp.(map[string]interface{})
 	countersEthernet4JsonUpdate["test_field"] = "test_value"
 
-	// prepare for test 3: stream query for COUNTERS/Ethernet4/SAI_PORT_STAT_PFC_7_RX_PKTS with update of field value
+	// prepare for test: stream query for COUNTERS/Ethernet4/SAI_PORT_STAT_PFC_7_RX_PKTS with update of field value
 	countersEthernet4Pfc7String := getFieldDataOfVirtualPath(t, "Ethernet4", "SAI_PORT_STAT_PFC_7_RX_PKTS", portNameMap)
 
 	// prepare for queue test
@@ -819,14 +756,24 @@ func runTestSubscribe(t *testing.T) {
 				Queries: []client.Path{{"COUNTERS", "Ethernet4", "SAI_PORT_STAT_PFC_7_RX_PKTS"}},
 				TLS:     &tls.Config{InsecureSkipVerify: true},
 			},
-			updates: []tablePathValue{{
-				dbName:    "COUNTERS_DB",
-				tableName: "COUNTERS",
-				tableKey:  oid4, // "Ethernet4": "oid_0x1000000000039",
-				delimitor: ":",
-				field:     "SAI_PORT_STAT_PFC_7_RX_PKTS",
-				value:     "1", // be changed to 1 from 0
-			}},
+			updates: []tablePathValue{
+				{
+					dbName:    "COUNTERS_DB",
+					tableName: "COUNTERS",
+					tableKey:  oid4,
+					delimitor: ":",
+					field:     "SAI_PORT_STAT_PFC_7_RX_PKTS",
+					value:     "1",
+				},
+				{
+					dbName:    "COUNTERS_DB",
+					tableName: "COUNTERS",
+					tableKey:  oid4,
+					delimitor: ":",
+					field:     "SAI_PORT_STAT_PFC_7_RX_PKTS",
+					value:     "0",
+				},
+			},
 			wantNoti: []client.Notification{
 				client.Connected{},
 				client.Update{Path: []string{"COUNTERS", "Ethernet4", "SAI_PORT_STAT_PFC_7_RX_PKTS"}, TS: time.Unix(0, 200), Val: emptyRespVal},
@@ -854,14 +801,14 @@ func runTestSubscribe(t *testing.T) {
 			updates: []tablePathValue{{
 				dbName:    "COUNTERS_DB",
 				tableName: "COUNTERS",
-				tableKey:  oid4, // "Ethernet4": "oid_0x1000000000039",
+				tableKey:  oid4,
 				delimitor: ":",
 				field:     "test_field",
 				value:     "test_value",
 			}, { //Same value set should not trigger multiple updates
 				dbName:    "COUNTERS_DB",
 				tableName: "COUNTERS",
-				tableKey:  oid4, // "Ethernet4": "oid_0x1000000000039",
+				tableKey:  oid4,
 				delimitor: ":",
 				field:     "test_field",
 				value:     "test_value",
@@ -895,18 +842,18 @@ func runTestSubscribe(t *testing.T) {
 				{
 					dbName:    "COUNTERS_DB",
 					tableName: "COUNTERS",
-					tableKey:  oid4, // "Ethernet4": "oid_0x1000000000039",
+					tableKey:  oid4,
 					delimitor: ":",
 					field:     "SAI_PORT_STAT_PFC_7_RX_PKTS",
-					value:     "4", // being changed to 4 from 0
+					value:     "4",
 				},
 				{
 					dbName:    "COUNTERS_DB",
 					tableName: "COUNTERS",
-					tableKey:  oid4, // "Ethernet4": "oid_0x1000000000039",
+					tableKey:  oid4,
 					delimitor: ":",
 					field:     "SAI_PORT_STAT_PFC_7_RX_PKTS",
-					value:     "3", // being changed to 3 from 4
+					value:     "3",
 				},
 			},
 			wantNoti: []client.Notification{
@@ -943,7 +890,6 @@ func runTestSubscribe(t *testing.T) {
 			}},
 			wantNoti: []client.Notification{
 				client.Connected{},
-				// We are starting from the result data of "stream query for table with update of new field",
 				client.Update{Path: []string{"COUNTERS_PORT_NAME_MAP"}, TS: time.Unix(0, 200), Val: portNameMap},
 				client.Sync{},
 				client.Update{Path: []string{"COUNTERS_PORT_NAME_MAP"}, TS: time.Unix(0, 200), Val: portNameMapUpdate},
@@ -984,7 +930,6 @@ func runTestSubscribe(t *testing.T) {
 			}},
 			wantNoti: []client.Notification{
 				client.Connected{},
-				// We are starting from the result data of "stream query for table with update of new field",
 				client.Update{Path: []string{"COUNTERS_PORT_NAME_MAP"}, TS: time.Unix(0, 200), Val: portNameMapUpdate},
 				client.Sync{},
 				client.Update{Path: []string{"COUNTERS_PORT_NAME_MAP"}, TS: time.Unix(0, 200), Val: portNameMap},
@@ -1008,10 +953,10 @@ func runTestSubscribe(t *testing.T) {
 			updates: []tablePathValue{{
 				dbName:    "COUNTERS_DB",
 				tableName: "COUNTERS",
-				tableKey:  oid4, // "Ethernet4": "oid_0x1000000000039",
+				tableKey:  oid4,
 				delimitor: ":",
 				field:     "SAI_PORT_STAT_PFC_7_RX_PKTS",
-				value:     "4", // being changed to 4 from 2
+				value:     "4",
 			}},
 			wantNoti: []client.Notification{
 				client.Connected{},
@@ -1041,10 +986,10 @@ func runTestSubscribe(t *testing.T) {
 			updates: []tablePathValue{{
 				dbName:    "COUNTERS_DB",
 				tableName: "COUNTERS",
-				tableKey:  oid4, // "Ethernet4": "oid_0x1000000000039",
+				tableKey:  oid4,
 				delimitor: ":",
 				field:     "SAI_PORT_STAT_PFC_7_RX_PKTS",
-				value:     "4", // being changed to 4 from 2
+				value:     "4",
 			}},
 			wantNoti: []client.Notification{
 				client.Connected{},
@@ -1074,10 +1019,10 @@ func runTestSubscribe(t *testing.T) {
 			updates: []tablePathValue{{
 				dbName:    "COUNTERS_DB",
 				tableName: "COUNTERS",
-				tableKey:  oid4, // "Ethernet4": "oid_0x1000000000039",
+				tableKey:  oid4,
 				delimitor: ":",
 				field:     "SAI_PORT_STAT_PFC_7_RX_PKTS",
-				value:     "4", // being changed to 4 from 2
+				value:     "4",
 			}},
 			wantNoti: []client.Notification{
 				client.Connected{},
@@ -1166,8 +1111,6 @@ func runTestSubscribe(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		// Extra db preparation for this test case
-
 		for _, prepare := range tt.prepares {
 			switch prepare.op {
 			case "hdel":
@@ -1185,7 +1128,6 @@ func runTestSubscribe(t *testing.T) {
 			defer c.Close()
 			var gotNoti []client.Notification
 			q.NotificationHandler = func(n client.Notification) error {
-				// t.Logf("reflect.TypeOf(n) %v :  %v", reflect.TypeOf(n), n)
 				if nn, ok := n.(client.Update); ok {
 					nn.TS = time.Unix(0, 200)
 					gotNoti = append(gotNoti, nn)
@@ -1197,20 +1139,8 @@ func runTestSubscribe(t *testing.T) {
 			}
 			go func() {
 				c.Subscribe(context.Background(), q)
-				/*
-					err := c.Subscribe(context.Background(), q)
-					t.Log("c.Subscribe err:", err)
-					switch {
-					case tt.wantErr && err != nil:
-						return
-					case tt.wantErr && err == nil:
-						t.Fatalf("c.Subscribe(): got nil error, expected non-nil")
-					case !tt.wantErr && err != nil:
-						t.Fatalf("c.Subscribe(): got error %v, expected nil", err)
-					}
-				*/
 			}()
-			// wait for half second for subscribeRequest to sync
+			// wait for one second for subscribeRequest to sync
 			time.Sleep(time.Millisecond * 1000)
 			for _, update := range tt.updates {
 				switch update.op {
@@ -1240,8 +1170,6 @@ func runTestSubscribe(t *testing.T) {
 			if tt.trimResult {
 				gotNoti = gotNoti[:len(tt.wantNoti)]
 			}
-			// t.Log("\n Want: \n", tt.wantNoti)
-			// t.Log("\n Got : \n", gotNoti)
 
 			if tt.compareData {
 				if diff := pretty.Compare(tt.wantNoti, gotNoti); diff != "" {
@@ -1252,8 +1180,8 @@ func runTestSubscribe(t *testing.T) {
 			} else {
 				if !compareResponsePath(t, tt.wantNoti, gotNoti) {
 					t.Errorf("Compare client.Notification failed")
-					// t.Log("\n Want: \n", tt.wantNoti)
-					// t.Log("\n Got : \n", gotNoti)
+					t.Log("\n Want: \n", tt.wantNoti)
+					t.Log("\n Got : \n", gotNoti)
 				}
 			}
 		})
@@ -1283,7 +1211,6 @@ func hdelCountersDB(t *testing.T, key, field string) {
 	defer session.Close()
 
 	cmd := fmt.Sprintf("redis-cli -n 2 --csv hdel %s %s", key, field)
-	// t.Log(cmd)
 	sshRedisCli(t, session, cmd)
 }
 
@@ -1297,16 +1224,12 @@ func compareResponsePath(t *testing.T, wantNoti, gotNoti []client.Notification) 
 		return false
 	}
 
-	// var result bool = true
 	for i := 0; i < len(wantNoti); i++ {
-		// item := wantNoti[i]
 		switch wantNoti[i].(type) {
 		case client.Update:
 			wantUpdate := wantNoti[i].(client.Update)
 			gotUpdate, ok := gotNoti[i].(client.Update)
 			if ok && wantUpdate.Path.Equal(gotUpdate.Path) {
-				// fmt.Println("update", wantUpdate.Path, gotUpdate.Path)
-				// fmt.Println("update", wantUpdate, gotUpdate)
 				continue
 			}
 			t.Logf("\n Want: %v \n", wantUpdate.Path)
@@ -1340,7 +1263,6 @@ func runTestSet(t *testing.T, ctx context.Context, gClient pb.GNMIClient, pathTa
 	req := &pb.SetRequest{}
 	switch op {
 	case Replace:
-		//prefix := pb.Path{Target: pathTarget}
 		var v *pb.TypedValue
 		v = &pb.TypedValue{
 			Value: &pb.TypedValue_JsonIetfVal{JsonIetfVal: extractJSON(attributeData)}}
@@ -1375,101 +1297,17 @@ func extractJSON(val string) []byte {
 	return []byte(val)
 }
 
-// func TestGnmiSet(t *testing.T) {
-
-// 	//t.Log("Start gNMI client")
-// 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
-// 	opts := []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))}
-
-// 	targetAddr := dialinAddr
-// 	conn, err := grpc.Dial(targetAddr, opts...)
-// 	if err != nil {
-// 		t.Fatalf("Dialing to %q failed: %v", targetAddr, err)
-// 	}
-// 	defer conn.Close()
-
-// 	gClient := pb.NewGNMIClient(conn)
-// 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-// 	defer cancel()
-
-// 	var emptyRespVal interface{}
-
-// 	tds := []struct {
-// 		desc          string
-// 		pathTarget    string
-// 		textPbPath    string
-// 		wantRetCode   codes.Code
-// 		wantRespVal   interface{}
-// 		attributeData string
-// 		operation     op_t
-// 		valTest       bool
-// 	}{
-// 		{
-// 			desc:       "Set OC Interface MTU",
-// 			pathTarget: "OC_YANG",
-// 			textPbPath: `
-//                         elem: <name: "openconfig-interfaces:interfaces" > elem:<name:"interface" key:<key:"name" value:"Ethernet4" > >
-//                 `,
-// 			attributeData: "../testdata/set_interface_mtu.json",
-// 			wantRetCode:   codes.OK,
-// 			wantRespVal:   emptyRespVal,
-// 			operation:     Replace,
-// 			valTest:       false,
-// 		},
-// 		// {
-// 		// 	desc:       "Set OC Interface IP",
-// 		// 	pathTarget: "OC_YANG",
-// 		// 	textPbPath: `
-// 		//             elem:<name:"openconfig-interfaces:interfaces" > elem:<name:"interface" key:<key:"name" value:"Ethernet4" > > elem:<name:"subinterfaces" > elem:<name:"subinterface" key:<key:"index" value:"0" > >
-// 		//         `,
-// 		// 	attributeData: "../testdata/set_interface_ipv4.json",
-// 		// 	wantRetCode:   codes.OK,
-// 		// 	wantRespVal:   emptyRespVal,
-// 		// 	operation:     Replace,
-// 		// 	valTest:       false,
-// 		// },
-// 		// {
-// 		// 	desc:       "Delete OC Interface IP",
-// 		// 	pathTarget: "OC_YANG",
-// 		// 	textPbPath: `
-// 		//             elem:<name:"openconfig-interfaces:interfaces" > elem:<name:"interface" key:<key:"name" value:"Ethernet4" > > elem:<name:"subinterfaces" > elem:<name:"subinterface" key:<key:"index" value:"0" > > elem:<name: "ipv4" > elem:<name: "addresses" > elem:<name:"address" key:<key:"ip" value:"9.9.9.9" > >
-// 		//         `,
-// 		// 	attributeData: "",
-// 		// 	wantRetCode:   codes.OK,
-// 		// 	wantRespVal:   emptyRespVal,
-// 		// 	operation:     Delete,
-// 		// 	valTest:       false,
-// 		// },
-// 	}
-
-// 	for _, td := range tds {
-// 		if td.valTest == true {
-// 			// wait for 2 seconds for change to sync
-// 			time.Sleep(2 * time.Second)
-// 			t.Run(td.desc, func(t *testing.T) {
-// 				runTestGet(t, ctx, gClient, td.pathTarget, td.textPbPath, td.wantRetCode, td.wantRespVal, td.valTest)
-// 			})
-// 		} else {
-// 			t.Run(td.desc, func(t *testing.T) {
-// 				runTestSet(t, ctx, gClient, td.pathTarget, td.textPbPath, td.wantRetCode, td.wantRespVal, td.attributeData, td.operation)
-// 			})
-// 		}
-// 	}
-// }
-
 func getEthernetWildcardPfcByte(t *testing.T, field string) []uint8 {
 	var result map[string]map[string]string = make(map[string]map[string]string)
 	prepareData(t, "aliasNameMap")
 	prepareData(t, "portNameMap")
-	// fmt.Println("aliasNameMap", len(aliasNameMap), aliasNameMap)
-	// fmt.Println("portNameMap", len(portNameMap), portNameMap)
+
 	for alias, portName := range aliasNameMap {
 		redisKey := "COUNTERS:" + portNameMap[portName]
-		// cmd := fmt.Sprintf("redis-cli -n 2 --csv hgetall %s", redisKey)
+
 		cmd := fmt.Sprintf("redis-cli -n 2 --csv hget %s %s", redisKey, field)
 		sshSession := getSSHSession(t)
 
-		// fmt.Printf("[Preparing compared data] Getting data of %v now\n", alias)
 		tmpResult := sshHget(t, sshSession, cmd)
 
 		result[alias] = map[string]string{field: tmpResult}
@@ -1477,8 +1315,6 @@ func getEthernetWildcardPfcByte(t *testing.T, field string) []uint8 {
 		sshSession.Close()
 	}
 	jsonBytes, _ := json.Marshal(result)
-	// fmt.Println(result)
-	// fmt.Println(string(jsonBytes))
 	return jsonBytes
 }
 
@@ -1491,7 +1327,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 	exe_cmd(t, "redis-cli -n 4 hset \"TELEMETRY_CLIENT|Global\" retry_interval 1")
 	exe_cmd(t, "redis-cli -n 4 hset \"TELEMETRY_CLIENT|Global\" encoding JSON_IETF")
 	exe_cmd(t, "redis-cli -n 4 hset \"TELEMETRY_CLIENT|Global\" unidirectional true")
-	// exe_cmd(t, "redis-cli -n 4 hset \"TELEMETRY_CLIENT|Global\" src_ip  192.168.3.20")
 
 	prepareData(t, "portNameMap")
 	prepareData(t, "aliasNameMap")
@@ -1548,8 +1383,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 				&pb.SubscribeResponse{
 					Response: &pb.SubscribeResponse_Update{
 						Update: &pb.Notification{
-							//Timestamp: GetTimestamp(),
-							//Prefix:    prefix,
 							Update: []*pb.Update{
 								{
 									Val: &pb.TypedValue{
@@ -1571,8 +1404,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 				&pb.SubscribeResponse{
 					Response: &pb.SubscribeResponse_Update{
 						Update: &pb.Notification{
-							//Timestamp: GetTimestamp(),
-							//Prefix:    prefix,
 							Update: []*pb.Update{
 								{Val: &pb.TypedValue{
 									Value: &pb.TypedValue_JsonIetfVal{
@@ -1604,8 +1435,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 				&pb.SubscribeResponse{
 					Response: &pb.SubscribeResponse_Update{
 						Update: &pb.Notification{
-							//Timestamp: GetTimestamp(),
-							//Prefix:    prefix,
 							Update: []*pb.Update{
 								{
 									Val: &pb.TypedValue{
@@ -1622,7 +1451,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 											},
 										},
 									},
-									//Path: GetPath(),
 								},
 							},
 						},
@@ -1631,8 +1459,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 				&pb.SubscribeResponse{
 					Response: &pb.SubscribeResponse_Update{
 						Update: &pb.Notification{
-							//Timestamp: GetTimestamp(),
-							//Prefix:    prefix,
 							Update: []*pb.Update{
 								{Val: &pb.TypedValue{
 									Value: &pb.TypedValue_JsonIetfVal{
@@ -1648,7 +1474,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 											},
 										},
 									},
-									//Path: GetPath(),
 								},
 							},
 						},
@@ -1673,8 +1498,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 				&pb.SubscribeResponse{
 					Response: &pb.SubscribeResponse_Update{
 						Update: &pb.Notification{
-							//Timestamp: GetTimestamp(),
-							//Prefix:    prefix,
 							Update: []*pb.Update{
 								{Val: &pb.TypedValue{
 									Value: &pb.TypedValue_JsonIetfVal{
@@ -1693,7 +1516,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 											},
 										},
 									},
-									//Path: GetPath(),
 								},
 							},
 						},
@@ -1702,8 +1524,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 				&pb.SubscribeResponse{
 					Response: &pb.SubscribeResponse_Update{
 						Update: &pb.Notification{
-							//Timestamp: GetTimestamp(),
-							//Prefix:    prefix,
 							Update: []*pb.Update{
 								{Val: &pb.TypedValue{
 									Value: &pb.TypedValue_JsonIetfVal{
@@ -1722,7 +1542,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 											},
 										},
 									},
-									//Path: GetPath(),
 								},
 							},
 						},
@@ -1747,8 +1566,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 				&pb.SubscribeResponse{
 					Response: &pb.SubscribeResponse_Update{
 						Update: &pb.Notification{
-							//Timestamp: GetTimestamp(),
-							//Prefix:    prefix,
 							Update: []*pb.Update{
 								{Val: &pb.TypedValue{
 									Value: &pb.TypedValue_JsonIetfVal{
@@ -1764,7 +1581,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 											},
 										},
 									},
-									//Path: GetPath(),
 								},
 							},
 						},
@@ -1773,8 +1589,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 				&pb.SubscribeResponse{
 					Response: &pb.SubscribeResponse_Update{
 						Update: &pb.Notification{
-							//Timestamp: GetTimestamp(),
-							//Prefix:    prefix,
 							Update: []*pb.Update{
 								{Val: &pb.TypedValue{
 									Value: &pb.TypedValue_JsonIetfVal{
@@ -1790,7 +1604,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 											},
 										},
 									},
-									//Path: GetPath(),
 								},
 							},
 						},
@@ -1805,7 +1618,7 @@ func TestGNMIDialOutPublish(t *testing.T) {
 			// <SubscribeResponse_Update>
 			// <SubscribeResponse_Update>
 			// ...
-			desc: "[Stream][RealPath]DialOut to second collector in stream mode(COUNTERS_PORT_NAME_MAP)",
+			desc: "[stream][RealPath]DialOut to second collector in stream mode(COUNTERS_PORT_NAME_MAP)",
 			cmds: []string{
 				"redis-cli -n 4 hset \"TELEMETRY_CLIENT|DestinationGroup_HS\" dst_addr " + dialoutAddr1 + "," + dialoutAddr2,
 				"redis-cli -n 4 hmset \"TELEMETRY_CLIENT|Subscription_HS_RDMA\" path_target COUNTERS_DB dst_group HS report_type stream paths COUNTERS_PORT_NAME_MAP",
@@ -1876,7 +1689,7 @@ func TestGNMIDialOutPublish(t *testing.T) {
 			// <SubscribeResponse_Update>
 			// <SubscribeResponse_SyncResponse>
 			// ...
-			desc: "[Stream][VirtualPath*]DialOut to second collector in stream mode upon failure of first collector(COUNTERS/Ethernet*/SAI_PORT_STAT_PFC_7_RX_PKTS)",
+			desc: "[stream][VirtualPath*]DialOut to second collector in stream mode upon failure of first collector(COUNTERS/Ethernet*/SAI_PORT_STAT_PFC_7_RX_PKTS)",
 			cmds: []string{
 				"redis-cli -n 4 hset \"TELEMETRY_CLIENT|DestinationGroup_HS\" dst_addr " + dialoutAddr1 + "," + dialoutAddr2,
 				"redis-cli -n 4 hmset \"TELEMETRY_CLIENT|Subscription_HS_RDMA\" path_target COUNTERS_DB dst_group HS report_type stream paths COUNTERS/Ethernet*/SAI_PORT_STAT_PFC_7_RX_PKTS",
@@ -1891,7 +1704,7 @@ func TestGNMIDialOutPublish(t *testing.T) {
 					tableKey:  oid4,
 					delimitor: ":",
 					field:     "SAI_PORT_STAT_PFC_7_RX_PKTS",
-					value:     "3", // be changed to 3 from 2
+					value:     "3",
 				},
 				{
 					dbName:    "COUNTERS_DB",
@@ -1899,7 +1712,7 @@ func TestGNMIDialOutPublish(t *testing.T) {
 					tableKey:  oid4,
 					delimitor: ":",
 					field:     "SAI_PORT_STAT_PFC_7_RX_PKTS",
-					value:     "3", // be changed to 3 from 2
+					value:     "3",
 				},
 				{
 					dbName:    "COUNTERS_DB",
@@ -1907,16 +1720,8 @@ func TestGNMIDialOutPublish(t *testing.T) {
 					tableKey:  oid4,
 					delimitor: ":",
 					field:     "SAI_PORT_STAT_PFC_7_RX_PKTS",
-					value:     "3", // be changed to 3 from 2
+					value:     "3",
 				},
-				// {
-				// 	dbName:    "COUNTERS_DB",
-				// 	tableName: "COUNTERS",
-				// 	tableKey:  oid4,
-				// 	delimitor: ":",
-				// 	field:     "SAI_PORT_STAT_PFC_7_RX_PKTS",
-				// 	value:     "2", // be changed to 2 from 3
-				// },
 			},
 			waitTime: 2*time.Second + time.Second,
 			wantRespVal: []*pb.SubscribeResponse{
@@ -1999,43 +1804,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 			slen := len(store)
 			wlen := len(wantRespVal)
 
-			// fmt.Println("@@@", tt.desc)
-			// for _, tmp := range wantRespVal {
-			// 	switch tmp.GetResponse().(type) {
-			// 	case *pb.SubscribeResponse_SyncResponse:
-			// 		fmt.Print("SyncResponse", "\t")
-			// 	case *pb.SubscribeResponse_Update:
-			// 		fmt.Print("Update", "\t")
-			// 	}
-			// }
-			// fmt.Println()
-			// for _, tmp := range store {
-			// 	switch tmp.GetResponse().(type) {
-			// 	case *pb.SubscribeResponse_SyncResponse:
-			// 		fmt.Print("SyncResponse", "\t")
-			// 	case *pb.SubscribeResponse_Update:
-			// 		fmt.Print("Update", "\t")
-			// 	}
-			// }
-			// fmt.Println()
-			// for _, tmp := range store {
-			// 	fmt.Println(tmp)
-			// }
-
-			// for idx, resp := range wantRespVal {
-			// 	switch store[slen-wlen+idx].GetResponse().(type) {
-			// 	case *pb.SubscribeResponse_SyncResponse:
-			// 		if _, ok := resp.GetResponse().(*pb.SubscribeResponse_SyncResponse); !ok {
-			// 			t.Fatalf("Expecting %v, got SyncResponse", resp.GetResponse())
-			// 		}
-			// 	case *pb.SubscribeResponse_Update:
-			// 		if len(resp.GetUpdate().GetUpdate()) == 0 {
-			// 			fmt.Println("0", "idx", idx, "content", resp)
-			// 			fmt.Println(wantRespVal)
-			// 		}
-			// 		compareUpdateValue(t, resp.GetUpdate(), store[slen-wlen+idx].GetUpdate())
-			// 	}
-			// }
 			for idx, resp := range wantRespVal {
 				switch resp.GetResponse().(type) {
 				case *pb.SubscribeResponse_SyncResponse:
@@ -2043,10 +1811,6 @@ func TestGNMIDialOutPublish(t *testing.T) {
 						t.Fatalf("Expecting SyncResponse, got %v", store[slen-wlen+idx].GetResponse())
 					}
 				case *pb.SubscribeResponse_Update:
-					// if len(resp.GetUpdate().GetUpdate()) == 0 {
-					// 	fmt.Println("0", "idx", idx, "content", resp)
-					// 	fmt.Println(wantRespVal)
-					// }
 					if _, ok := store[slen-wlen+idx].GetResponse().(*pb.SubscribeResponse_Update); !ok {
 						t.Fatalf("Expecting %v, got SyncResponse", resp.GetResponse())
 					} else {
@@ -2132,12 +1896,10 @@ func createServer(t *testing.T, cfg *sds.Config) *sds.Server {
 }
 
 func runServer(t *testing.T, s *sds.Server) {
-	//t.Log("Starting RPC server on address:", s.Address())
 	err := s.Serve() // blocks until close
 	if err != nil {
 		t.Fatalf("gRPC server err: %v", err)
 	}
-	//t.Log("Exiting RPC server on address", s.Address())
 }
 
 func compareUpdatePath(t *testing.T, want *pb.Notification, got *pb.Notification) {
@@ -2183,15 +1945,10 @@ func compareUpdateValue(t *testing.T, want *pb.Notification, got *pb.Notificatio
 	gotValTyped := updates[0].GetVal()
 
 	updates = want.GetUpdate()
-	// fmt.Println("\ngot", got, "\n", updates)
 	if len(updates) == 0 {
 		fmt.Println("0", want)
 	}
 	wantRespValTyped := updates[0].GetVal()
-
-	//if !reflect.DeepEqual(val, wantRespVal) {
-	//	t.Errorf("got: %v (%T),\nwant %v (%T)", val, val, wantRespVal, wantRespVal)
-	//}
 
 	if gotValTyped.GetJsonIetfVal() == nil {
 		gotVal, err = value.ToScalar(gotValTyped)
