@@ -644,12 +644,6 @@ func runTestSubscribe(t *testing.T) {
 	countersEthernet4JsonUpdate := tmp.(map[string]interface{})
 	countersEthernet4JsonUpdate["test_field"] = "test_value"
 
-	// prepare for test: stream query for COUNTERS/Ethernet4/SAI_PORT_STAT_PFC_7_RX_PKTS with update of field value
-	countersEthernet4Pfc7String := getFieldDataOfVirtualPath(t, "Ethernet4", "SAI_PORT_STAT_PFC_7_RX_PKTS", portNameMap)
-
-	// prepare for queue test
-	prepareData(t, "queueOfEthernet4")
-
 	tests := []struct {
 		desc       string
 		q          client.Query
@@ -961,16 +955,16 @@ func runTestSubscribe(t *testing.T) {
 			wantNoti: []client.Notification{
 				client.Connected{},
 				client.Update{Path: []string{"COUNTERS", "Ethernet4", "SAI_PORT_STAT_PFC_7_RX_PKTS"},
-					TS: time.Unix(0, 200), Val: countersEthernet4Pfc7String},
+					TS: time.Unix(0, 200), Val: emptyRespVal},
 				client.Sync{},
 				client.Update{Path: []string{"COUNTERS", "Ethernet4", "SAI_PORT_STAT_PFC_7_RX_PKTS"},
-					TS: time.Unix(0, 200), Val: countersEthernet4Pfc7String},
+					TS: time.Unix(0, 200), Val: emptyRespVal},
 				client.Sync{},
 				client.Update{Path: []string{"COUNTERS", "Ethernet4", "SAI_PORT_STAT_PFC_7_RX_PKTS"},
-					TS: time.Unix(0, 200), Val: countersEthernet4Pfc7String},
+					TS: time.Unix(0, 200), Val: emptyRespVal},
 				client.Sync{},
 				client.Update{Path: []string{"COUNTERS", "Ethernet4", "SAI_PORT_STAT_PFC_7_RX_PKTS"},
-					TS: time.Unix(0, 200), Val: countersEthernet4Pfc7String},
+					TS: time.Unix(0, 200), Val: emptyRespVal},
 				client.Sync{},
 			},
 		},
@@ -1008,7 +1002,7 @@ func runTestSubscribe(t *testing.T) {
 			},
 		},
 		{
-			desc: "[poll][VirtualPath*]poll query for table key field Ethernet*/SAI_PORT_STAT_PFC_7_RX_PKTS with Ethernet68/SAI_PORT_STAT_PFC_7_RX_PKTS field value change",
+			desc: "[poll][VirtualPath*]poll query for table key field Ethernet*/SAI_PORT_STAT_PFC_7_RX_PKTS with Ethernet4/SAI_PORT_STAT_PFC_7_RX_PKTS field value change",
 			poll: 3,
 			q: client.Query{
 				Target:  "COUNTERS_DB",
@@ -1071,16 +1065,16 @@ func runTestSubscribe(t *testing.T) {
 			wantNoti: []client.Notification{
 				client.Connected{},
 				client.Update{Path: []string{"COUNTERS", "Ethernet4", "Queues"},
-					TS: time.Unix(0, 200), Val: queueOfEthernet4},
+					TS: time.Unix(0, 200), Val: emptyRespVal},
 				client.Sync{},
 				client.Update{Path: []string{"COUNTERS", "Ethernet4", "Queues"},
-					TS: time.Unix(0, 200), Val: queueOfEthernet4},
+					TS: time.Unix(0, 200), Val: emptyRespVal},
 				client.Sync{},
 				client.Update{Path: []string{"COUNTERS", "Ethernet4", "Queues"},
-					TS: time.Unix(0, 200), Val: queueOfEthernet4},
+					TS: time.Unix(0, 200), Val: emptyRespVal},
 				client.Sync{},
 				client.Update{Path: []string{"COUNTERS", "Ethernet4", "Queues"},
-					TS: time.Unix(0, 200), Val: queueOfEthernet4},
+					TS: time.Unix(0, 200), Val: emptyRespVal},
 				client.Sync{},
 			},
 		},
@@ -1253,42 +1247,6 @@ const (
 	Replace op_t = 2
 )
 
-func runTestSet(t *testing.T, ctx context.Context, gClient pb.GNMIClient, pathTarget string,
-	textPbPath string, wantRetCode codes.Code, wantRespVal interface{}, attributeData string, op op_t) {
-	// Send request
-	var pbPath pb.Path
-	if err := proto.UnmarshalText(textPbPath, &pbPath); err != nil {
-		t.Fatalf("error in unmarshaling path: %v %v", textPbPath, err)
-	}
-	req := &pb.SetRequest{}
-	switch op {
-	case Replace:
-		var v *pb.TypedValue
-		v = &pb.TypedValue{
-			Value: &pb.TypedValue_JsonIetfVal{JsonIetfVal: extractJSON(attributeData)}}
-
-		req = &pb.SetRequest{
-			Replace: []*pb.Update{&pb.Update{Path: &pbPath, Val: v}},
-		}
-	case Delete:
-		req = &pb.SetRequest{
-			Delete: []*pb.Path{&pbPath},
-		}
-	}
-
-	fmt.Println(req)
-	_, err := gClient.Set(ctx, req)
-	gotRetStatus, ok := status.FromError(err)
-	if !ok {
-		t.Fatal("got a non-grpc error from grpc call")
-	}
-	if gotRetStatus.Code() != wantRetCode {
-		t.Log("err: ", err)
-		t.Fatalf("got return code %v, want %v", gotRetStatus.Code(), wantRetCode)
-	} else {
-	}
-}
-
 func extractJSON(val string) []byte {
 	jsonBytes, err := ioutil.ReadFile(val)
 	if err == nil {
@@ -1405,11 +1363,18 @@ func TestGNMIDialOutPublish(t *testing.T) {
 					Response: &pb.SubscribeResponse_Update{
 						Update: &pb.Notification{
 							Update: []*pb.Update{
-								{Val: &pb.TypedValue{
-									Value: &pb.TypedValue_JsonIetfVal{
-										JsonIetfVal: countersPortNameMapByte,
-									}},
-								//Path: GetPath(),
+								{
+									Val: &pb.TypedValue{
+										Value: &pb.TypedValue_JsonIetfVal{
+											JsonIetfVal: countersPortNameMapByte,
+										}},
+									Path: &pb.Path{
+										Elem: []*pb.PathElem{
+											&pb.PathElem{
+												Name: "COUNTERS_PORT_NAME_MAP",
+											},
+										},
+									},
 								},
 							},
 						},
@@ -1486,7 +1451,7 @@ func TestGNMIDialOutPublish(t *testing.T) {
 			// <SubscribeResponse_Update>
 			// <SubscribeResponse_Update>
 			// ...
-			desc: "[Periodic][VirutalPath]DialOut to first collector in periodic mode upon failure of first collector(COUNTERS/Ethernet4/Queues)",
+			desc: "[Periodic][VirutalPath]DialOut to second collector in periodic mode upon failure of first collector(COUNTERS/Ethernet4/Queues)",
 			cmds: []string{
 				"redis-cli -n 4 hset \"TELEMETRY_CLIENT|DestinationGroup_HS\" dst_addr " + dialoutAddr1 + "," + dialoutAddr2,
 				"redis-cli -n 4 hmset \"TELEMETRY_CLIENT|Subscription_HS_RDMA\" path_target COUNTERS_DB dst_group HS report_type periodic report_interval 1000 paths COUNTERS/Ethernet4/Queues",
@@ -1618,7 +1583,7 @@ func TestGNMIDialOutPublish(t *testing.T) {
 			// <SubscribeResponse_Update>
 			// <SubscribeResponse_Update>
 			// ...
-			desc: "[stream][RealPath]DialOut to second collector in stream mode(COUNTERS_PORT_NAME_MAP)",
+			desc: "[stream][RealPath]DialOut to first collector in stream mode(COUNTERS_PORT_NAME_MAP)",
 			cmds: []string{
 				"redis-cli -n 4 hset \"TELEMETRY_CLIENT|DestinationGroup_HS\" dst_addr " + dialoutAddr1 + "," + dialoutAddr2,
 				"redis-cli -n 4 hmset \"TELEMETRY_CLIENT|Subscription_HS_RDMA\" path_target COUNTERS_DB dst_group HS report_type stream paths COUNTERS_PORT_NAME_MAP",
@@ -1675,6 +1640,13 @@ func TestGNMIDialOutPublish(t *testing.T) {
 									Value: &pb.TypedValue_JsonIetfVal{
 										JsonIetfVal: portNameMapUpdateByte,
 									}},
+									Path: &pb.Path{
+										Elem: []*pb.PathElem{
+											&pb.PathElem{
+												Name: "COUNTERS_PORT_NAME_MAP",
+											},
+										},
+									},
 								},
 							},
 						},
